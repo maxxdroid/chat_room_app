@@ -2,6 +2,8 @@ package api.chatapp.payload;
 
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @AllArgsConstructor
@@ -10,5 +12,7 @@ import lombok.*;
 public class ChatMessage {
     private String content;
     private String sender;
+    private String recipient;
+    private LocalDateTime timestamp;
     private MessageType type;
 }

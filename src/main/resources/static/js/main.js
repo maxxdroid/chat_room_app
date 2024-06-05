@@ -10,6 +10,7 @@ var connectingElement = document.querySelector('.connecting');
 
 var stompClient = null;
 var username = null;
+var recipient = null;
 
 var colors = [
     '#2196F3', '#32c787', '#00BCD4', '#ff5652',
@@ -18,8 +19,9 @@ var colors = [
 
 function connect(event) {
     username = document.querySelector('#name').value.trim();
+    recipient = document.querySelector('#recipient').value.trim();
 
-    if(username) {
+    if(username && recipient) {
         usernamePage.classList.add('hidden');
         chatPage.classList.remove('hidden');
 
@@ -31,44 +33,68 @@ function connect(event) {
     event.preventDefault();
 }
 
+function onConnected(frame) {
+    console.log('Connected to WebSocket');
+    console.log('Connected frame headers:', frame.headers); // Log all headers
 
-function onConnected() {
-    // Subscribe to the Public Topic
-    stompClient.subscribe('/topic/public', onMessageReceived);
+    // Attempt to get the session ID from headers
+    var url = stompClient.ws._transport.url;
+    console.log(url)
+        var url = stompClient.ws._transport.url;
+            console.log("Original URL: " + url);
 
-    // Tell your username to the server
+            // Split the URL by '/' and get the session ID part
+            var parts = url.split("/");
+            var sessionId = parts[parts.length - 2]; // Assuming session ID is the second last part
+            console.log("Your current session ID is: " + sessionId);
+
     stompClient.send("/app/chat.addUser",
-        {},
-        JSON.stringify({sender: username, type: 'JOIN'})
-    )
+                {},
+                JSON.stringify({sender: username, recipient: recipient, type: 'JOIN'})
+            )
+    console.log(frame.headers)
+    if (sessionId) {
+        // Subscribe to the user's private topic using the session ID
+        stompClient.subscribe('/user/chat/2300', onMessageReceived);
 
-    connectingElement.classList.add('hidden');
+
+//        stompClient.send("/app/chat.addUser",
+//            {},
+//            JSON.stringify({sender: username, recipient: recipient, type: 'JOIN'})
+//        )
+
+        connectingElement.classList.add('hidden');
+    } else {
+        console.error('Could not extract session ID from the connection frame');
+    }
 }
 
 
 function onError(error) {
+    console.error('Could not connect to WebSocket server. Please refresh this page to try again!', error);
     connectingElement.textContent = 'Could not connect to WebSocket server. Please refresh this page to try again!';
     connectingElement.style.color = 'red';
 }
-
 
 function sendMessage(event) {
     var messageContent = messageInput.value.trim();
     if(messageContent && stompClient) {
         var chatMessage = {
             sender: username,
+            recipient: recipient,
             content: messageInput.value,
             type: 'CHAT'
         };
-        stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
+        console.log('Sending message:', chatMessage);
+        stompClient.send("/user/chat/2300", {}, JSON.stringify(chatMessage));
         messageInput.value = '';
     }
     event.preventDefault();
 }
 
-
 function onMessageReceived(payload) {
     var message = JSON.parse(payload.body);
+    console.log('Message received:', message);
 
     var messageElement = document.createElement('li');
 
@@ -104,8 +130,6 @@ function onMessageReceived(payload) {
     messageArea.scrollTop = messageArea.scrollHeight;
 }
 
-
-
 function getAvatarColor(messageSender) {
     var hash = 0;
     for (var i = 0; i < messageSender.length; i++) {
@@ -115,5 +139,5 @@ function getAvatarColor(messageSender) {
     return colors[index];
 }
 
-usernameForm.addEventListener('submit', connect, true)
-messageForm.addEventListener('submit', sendMessage, true)
+usernameForm.addEventListener('submit', connect, true);
+messageForm.addEventListener('submit', sendMessage, true);
